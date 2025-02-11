@@ -22,7 +22,7 @@ wandb.init(
     project="model2",  # 🔥 프로젝트 이름
     config={
         "batch_size": 16,
-        "num_epochs": 500,
+        "num_epochs": 50,
         "learning_rate": 0.001,
         "loss_function": "MSEloss",
         "optimizer": "Adam",
@@ -34,7 +34,7 @@ early_stop_num = 100
 num_ss = 15
 
 """ 🔥 1. wav_to_mel 변환 """
-def wav_to_mel(wav_path, output_size=(256, 256)):
+def wav_to_mel(wav_path, output_size=(224, 224)):
     y, sr = librosa.load(wav_path, sr=None)
 
     stft_result = librosa.stft(y, n_fft=512, win_length=64, hop_length = 16)
@@ -56,7 +56,7 @@ def wav_to_mel(wav_path, output_size=(256, 256)):
 class CustomDataset(Dataset):
     def __init__(self, data_list):
         self.data_list = data_list
-        self.resize = transforms.Resize((256, 256))
+        self.resize = transforms.Resize((224, 224))
 
     def __len__(self):
         return len(self.data_list)
@@ -98,9 +98,7 @@ class CustomDataset(Dataset):
             print(f"데이터 로드 중 오류 발생 (index: {idx}) - {e}")
             return None  
         
-        
 """ 🔥 3. U-Net 모델 정의 """
-
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels):
         super(ConvBlock, self).__init__()
@@ -261,7 +259,7 @@ for epoch in range(num_epochs):
     
     ##### 모델, Json 저장 ####
     if (epoch + 1) % 5 == 0:      
-        model_save_path = f"/home/mihyun/server_data/model/model2/unet_output/train_{epoch+1}.pth"
+        model_save_path = f"/home/mihyun/server_data/model/model_step1/unet_output/train_{epoch+1}.pth"
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -305,7 +303,7 @@ for epoch in range(num_epochs):
     if val_avg_loss < best_mse_loss:
         best_mse_loss = val_avg_loss
         count = 0
-        model_path = f"/home/mihyun/server_data/model/model2/unet_output/val_{epoch+1}.pth"
+        model_path = f"/home/mihyun/server_data/model/model_step1/unet_output/val_{epoch+1}.pth"
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),

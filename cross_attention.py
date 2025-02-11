@@ -35,8 +35,6 @@ best_mse_loss = float("inf")  # UNet 모델의 최적 MSE Loss
 early_stop_num = 100
 num_ss = 15
 
-
-
 """ 🔥 1. wav_to_mel 변환 """
 def wav_to_mel(wav_path, output_size=(224, 224)):
     y, sr = librosa.load(wav_path, sr=None)
@@ -231,7 +229,7 @@ class UNet(nn.Module):
         self.b = ConvBlock(512, 1024)
         self.attn = CrossAttention(1024)
         
-        self.sound = SoundEnc()
+        self.sound = SoundEnc() # (2, 224, 224) -> (1024, 14, 14)
 
         self.d1 = DecoderBlock(1024, 512)
         self.d2 = DecoderBlock(512, 256)
@@ -240,7 +238,7 @@ class UNet(nn.Module):
 
         self.outputs = nn.Conv2d(64, 1, 1) # 커널 사이즈 1
 
-    def forward(self, x, sound_input):
+    def forward(self, x, ir):
         s1, p1 = self.e1(x)
         s2, p2 = self.e2(p1)
         s3, p3 = self.e3(p2)
@@ -248,7 +246,7 @@ class UNet(nn.Module):
 
         b = self.b(p4)
         
-        sound = self.sound(sound_input)
+        sound = self.sound(ir)
         b = self.attn(b, sound, sound)
         # sound_b = self.attn(sound, b, b)
         # combined = torch.cat([b, sound_b], dim=1)  # (B, C*2, H, W)
@@ -305,7 +303,7 @@ wandb.watch(model, log="all")
 criterion_mse = nn.MSELoss()
 
 """ 🔥 6. 학습 루프 """
-for epoch in range(start_epoch, num_epochs):
+for epoch in range(num_epochs):
     model.train()   
     mse_losses = 0.0
     
@@ -316,11 +314,11 @@ for epoch in range(start_epoch, num_epochs):
         sound_losses = []   
         
         for sound_idx in range(sound_tensor.size(1)): 
-            one_sound = sound_tensor[:, sound_idx]  # (B, 3, H, W)
+            ir = sound_tensor[:, sound_idx]  # (B, 3, H, W)
             
             # inputs = torch.cat([rgb, one_sound], dim=1)   # (B, 6, H, W)
-            inputs, one_sound, targets = rgb.to(device), one_sound.to(device), depth.to(device)
-            outputs = model(inputs, one_sound)
+            inputs, ir, targets = rgb.to(device), ir.to(device), depth.to(device)
+            outputs = model(inputs, ir)
 
             mse_loss = criterion_mse(outputs, targets) 
             sound_losses.append(mse_loss.item())       
@@ -342,7 +340,7 @@ for epoch in range(start_epoch, num_epochs):
     
     ##### 모델, Json 저장 ####
     if (epoch + 1) % 5 == 0:      
-        model_save_path = f"/home/mihyun/server_data/model/model2/cross_attention_output/train_{epoch+1}.pth"
+        model_save_path = f"/home/mihyun/server_data/model/model_step1/cross_attention_output/train_{epoch+1}.pth"
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
@@ -386,7 +384,7 @@ for epoch in range(start_epoch, num_epochs):
     if val_avg_loss < best_mse_loss:
         best_mse_loss = val_avg_loss
         count = 0
-        model_path = f"/home/mihyun/server_data/model/model2/cross_attention_output/val_{epoch+1}.pth"
+        model_path = f"/home/mihyun/server_data/model/model_step1/cross_attention_output/val_{epoch+1}.pth"
         torch.save({
             'epoch': epoch,
             'model_state_dict': model.state_dict(),
